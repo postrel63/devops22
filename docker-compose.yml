@@ -1,0 +1,11 @@
+version: '3'
+services:
+  app:
+    image: postrel63/backend:${DOCKER_IMAGE_TAG}
+    ports:
+      - "8080:8080"
+
+  front:
+    image: postrel63/frontend:${DOCKER_IMAGE_TAG}
+    ports:
+      - "80:80"
