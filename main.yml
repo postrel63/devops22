@@ -1,0 +1,116 @@
+name: devops test
+
+on:
+  push:
+    branches: [ frontend, backend ]
+
+jobs:
+  frontend-deploy:
+    if: github.ref == 'refs/heads/frontend'
+    name: Deploy to K8S frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build with Gradle
+        run: |
+          chmod +x ./gradlew
+          ./gradlew docker
+
+      - name: Login to docker hub
+        uses: actions-hub/docker/login@master
+        env:
+          DOCKER_USERNAME: ${DOCKER_USERNAME}
+          DOCKER_PASSWORD: ${DOCKER_PASSOWRD}
+
+
+      - name: Push Frontend Docker image
+        uses: actions-hub/docker@master
+        with:
+          args: push postrel63/frontend:1.5
+
+      - name: restart frontend container
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 175.197.41.193
+          username: test
+          key: ${{SSH_KEY}}
+          port: 22
+          script: |
+            kubectl apply -f - <<EOF
+            apiVersion: v1
+            kind: Pod
+            metadata:
+              name: frontend
+            spec:
+              containers:
+                - name: frontend
+                  image: postrel63/frontend:1.5
+            EOF
+  backend-deploy:
+    if: github.ref == 'refs/heads/backend'
+    name: Deploy to K8S backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build with Gradle
+        run: |
+          chmod +x ./gradlew
+          ./gradlew docker -Pplatform=backend
+
+      - name: Login to docker hub
+        uses: actions-hub/docker/login@master
+        env:
+          DOCKER_USERNAME: ${DOCKER_USERNAME}
+          DOCKER_PASSWORD: ${DOCKER_PASSWORD}
+
+      - name: Push Backend Docker image
+        uses: actions-hub/docker@master
+        with:
+          args: push postrel63/backend:1.5
+
+      - name: restart backend container
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 175.197.41.193
+          username: test
+          key: ${{SSH_KEY}}
+          port: 22
+          script: |
+            kubectl apply -f - <<EOF
+            apiVersion: v1
+            kind: Pod
+            metadata:
+              name: backend
+            spec:
+              containers:
+                - name: backend
+                  image: postrel63/backend:1.5
+            EOF
